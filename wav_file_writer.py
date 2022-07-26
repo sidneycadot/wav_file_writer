@@ -3,7 +3,7 @@
 # See http://www-mmsp.ece.mcgill.ca/Documents/AudioFormats/WAVE/WAVE.html
 
 import struct
-from typing import NamedTuple, Callable
+from typing import NamedTuple
 from enum import Enum
 
 
@@ -11,7 +11,6 @@ class _SampleFormatInfo(NamedTuple):
     audio_format: int
     bytes_per_sample: int
     struct_pack_letter: str
-    make_value: Callable
 
 
 class WaveFormat(Enum):
@@ -20,18 +19,33 @@ class WaveFormat(Enum):
 
 
 class SampleFormat(Enum):
-    INT8    = 1
+    UINT8   = 1
     INT16   = 2
     FLOAT32 = 3
     FLOAT64 = 4
 
 
 _sample_format_info = {
-    SampleFormat.INT8    : _SampleFormatInfo(WaveFormat.PCM       , 1, 'B', lambda x: int(x - 127.5) % 256),
-    SampleFormat.INT16   : _SampleFormatInfo(WaveFormat.PCM       , 2, 'h', round),
-    SampleFormat.FLOAT32 : _SampleFormatInfo(WaveFormat.IEEE_FLOAT, 4, 'f', float),
-    SampleFormat.FLOAT64 : _SampleFormatInfo(WaveFormat.IEEE_FLOAT, 8, 'd', float)
+    SampleFormat.UINT8   : _SampleFormatInfo(WaveFormat.PCM       , 1, 'B'),
+    SampleFormat.INT16   : _SampleFormatInfo(WaveFormat.PCM       , 2, 'h'),
+    SampleFormat.FLOAT32 : _SampleFormatInfo(WaveFormat.IEEE_FLOAT, 4, 'f'),
+    SampleFormat.FLOAT64 : _SampleFormatInfo(WaveFormat.IEEE_FLOAT, 8, 'd')
 }
+
+
+def _uint8_converter(x: float):
+    """Map a floating-point value in the range [-1 .. +1] to an 8-bit unsigned integer in the range [0 .. 255]."""
+    xi = round(128.0 * x + 127.5)
+    return min(max(0, xi), 255)
+
+
+def _int16_converter(x: float):
+    """Map a floating-point value in the range [-1 .. +1] to a 16-bit signed integer in the range [-32767 .. +32767].
+
+    This function will never return -32768, keeping the range fully symmetric.
+    """
+    xi = round(32767.5 * x)
+    return min(max(-32767, xi), 32767)
 
 
 class WavFileWriter:
@@ -91,20 +105,26 @@ class WavFileWriter:
 
         self.wavfile.write(binary_header)
 
-    def append_sample(self, *values):
+    def append_raw_sample(self, *sample):
         """Append a value to the WavFileWriter."""
 
         if not self.is_open:
             raise RuntimeError("Attempt to append sample to a WavFileWRiter that is closed.")
 
-        if len(values) != self.num_channels:
-            raise ValueError("Expected {} values for sample, got {}.".format(self.num_channels, len(values)))
-
-        format_info = _sample_format_info[self.sample_format]
-
-        converted_values = map(format_info.make_value, values)
-
-        binary_sample = struct.pack(self.sample_struct_format, *converted_values)
+        binary_sample = struct.pack(self.sample_struct_format, *sample)
 
         self.wavfile.write(binary_sample)
         self.num_samples += 1
+
+    def append_sample(self, *sample):
+        """Append a value to the WavFileWriter. The sample value is nominally in the range [-1 .. +1]."""
+
+        if self.sample_format == SampleFormat.UINT8:
+            # Convert and clip the sample values to the range [0 .. 255].
+            self.append_raw_sample(*map(_uint8_converter, sample))
+        elif self.sample_format == SampleFormat.INT16:
+            # Convert and clip the sample values to the range [-32767 .. +32767].
+            self.append_raw_sample(*map(_int16_converter, sample))
+        else:
+            # Float format. We pass the values as-is, and accept values that are outside the [-1, +1] range.
+            self.append_raw_sample(*sample)

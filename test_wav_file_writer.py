@@ -7,10 +7,10 @@ from wav_file_writer import SampleFormat, WavFileWriter
 def main():
 
     testcases = [
-        ('uint8'   , SampleFormat.INT8    ,   125.0),
-        ('int16'   , SampleFormat.INT16   , 32000.0),
-        ('float32' , SampleFormat.FLOAT32 ,     1.0),
-        ('float64' , SampleFormat.FLOAT64 ,     1.0)
+        ('uint8'   , SampleFormat.UINT8   ),
+        ('int16'   , SampleFormat.INT16   ),
+        ('float32' , SampleFormat.FLOAT32 ),
+        ('float64' , SampleFormat.FLOAT64 )
     ]
 
     sample_rate = 48000  # Hz
@@ -19,7 +19,7 @@ def main():
     freq = 440.0
     num_samples  = round(sample_rate * duration)
 
-    for (filename_prefix, sample_format, multiplier) in testcases:
+    for (filename_prefix, sample_format) in testcases:
 
         filename = "test_{}.wav".format(filename_prefix)
 
@@ -29,9 +29,9 @@ def main():
             for i in range(num_samples):
                 t = i / sample_rate
                 phase = t * freq * math.tau
-                ch1 = multiplier * math.cos(phase)
-                ch2 = multiplier * math.sin(phase)
-                ch3 = multiplier * math.sin(2 * phase)
+                ch1 = math.cos(phase)
+                ch2 = math.sin(phase)
+                ch3 = math.sin(2 * phase)
 
                 wav.append_sample(ch1, ch2, ch3)
 
