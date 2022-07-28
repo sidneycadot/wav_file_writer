@@ -1,8 +1,15 @@
 #! /usr/bin/env -S python3 -B
 
+"""Test the WAV file writer.
+
+We write four WAV files with three channels each, using a sample rate of 48 kHz,
+with a duration of 5 seconds, and different types of samples.
+"""
+
 import math
 
 from wav_file_writer import SampleFormat, WavFileWriter
+
 
 def main():
 
@@ -31,7 +38,7 @@ def main():
                 phase = t * freq * math.tau
                 ch1 = math.cos(phase)
                 ch2 = math.sin(phase)
-                ch3 = math.sin(2 * phase)
+                ch3 = math.sin(2 * phase)  # A sine signal at (2 * freq).
 
                 wav.append_sample(ch1, ch2, ch3)
 
